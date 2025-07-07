@@ -1,4 +1,4 @@
-name: 1. Deploy_Azure_VM
+name: 1. Deploy_AVNM
 
 on: 
     workflow_dispatch:
@@ -47,7 +47,8 @@ jobs:
                     az stack sub create \
                     --name "AVNM-DeploymentStack" \
                     --location ${{ env.Location }} \
-                    --template-file avnm/avnm.bicep \
+                    --template-file AVNM/avnm.bicep \
+                    --parameters AVNM/avnm.bicepparam \
                     --action-on-unmanage 'detachAll' \
                     --deny-settings-mode 'denyDelete' \
                     --deny-settings-excluded-principals '${{ secrets.SPN_OBJECT_ID }}'
