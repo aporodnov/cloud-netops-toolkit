@@ -10,7 +10,7 @@ param tags = {
 
 param networkManagerName = 'NetworkManager-01'
 param networkManagerSubscriptionScopes = [
-  'a31fc76b-e874-4a57-98b2-3d312d195025'
+  '/subscriptions/a31fc76b-e874-4a57-98b2-3d312d195025'
 ]
 // param networkManagerNetworkGroups = {
   
