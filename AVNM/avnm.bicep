@@ -18,7 +18,7 @@ resource AVNM_RG 'Microsoft.Resources/resourceGroups@2025-04-01' = {
 param networkManagerName string
 param networkManagerSubscriptionScopes array
 // param networkManagerNetworkGroups object
-param networkManagerSecurityAdminConfigurations object
+// param networkManagerSecurityAdminConfigurations object
 module networkManager 'br/public:avm/res/network/network-manager:0.5.2' = {
   name: 'AVNM_Instance_Deployment'
   scope: AVNM_RG
@@ -34,8 +34,8 @@ module networkManager 'br/public:avm/res/network/network-manager:0.5.2' = {
     // networkGroups: [
     //   networkManagerNetworkGroups
     // ]
-    securityAdminConfigurations: [
-      networkManagerSecurityAdminConfigurations
-    ]
+    // securityAdminConfigurations: [
+    //   networkManagerSecurityAdminConfigurations
+    // ]
   }
 }

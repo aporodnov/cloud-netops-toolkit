@@ -15,7 +15,7 @@ param networkManagerSubscriptionScopes = [
 // param networkManagerNetworkGroups = {
   
 // }
-param networkManagerSecurityAdminConfigurations = {
+// param networkManagerSecurityAdminConfigurations = {
 
-}
+// }
 
