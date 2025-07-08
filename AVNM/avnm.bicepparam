@@ -10,11 +10,11 @@ param tags = {
 
 param networkManagerName = 'NetworkManager-01'
 param networkManagerSubscriptionScopes = [
-  
+
 ]
-param networkManagerNetworkGroups = {
+// param networkManagerNetworkGroups = {
   
-}
+// }
 param networkManagerSecurityAdminConfigurations = {
 
 }
