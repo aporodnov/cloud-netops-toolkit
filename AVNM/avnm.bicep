@@ -9,11 +9,33 @@ param location string
 @description('Location for the resource group')
 param tags object
 
-module resourceGroup 'br/public:avm/res/resources/resource-group:0.4.1' = {
-  name: 'RG_Deployment'
+resource AVNM_RG 'Microsoft.Resources/resourceGroups@2025-04-01' = {
+  name: resourceGroupName
+  location: location
+  tags: tags
+}
+
+param networkManagerName string
+param networkManagerSubscriptionScopes array
+param networkManagerNetworkGroups object
+param networkManagerSecurityAdminConfigurations object
+module networkManager 'br/public:avm/res/network/network-manager:0.5.2' = {
+  name: 'AVNM_Instance_Deployment'
+  scope: AVNM_RG
   params: {
-    name: resourceGroupName
+    name: networkManagerName
     location: location
-    tags: tags
+    networkManagerScopes: {
+      subscriptions: networkManagerSubscriptionScopes
+    }
+    networkManagerScopeAccesses: [
+      'SecurityAdmin'
+    ]
+    networkGroups: [
+      networkManagerNetworkGroups
+    ]
+    securityAdminConfigurations: [
+      networkManagerSecurityAdminConfigurations
+    ]
   }
 }

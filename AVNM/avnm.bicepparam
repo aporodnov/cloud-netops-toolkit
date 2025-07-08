@@ -7,3 +7,15 @@ param tags = {
   Environment: 'Production'
   ApplicationName: 'AVNM'
 }
+
+param networkManagerName = 'NetworkManager-01'
+param networkManagerSubscriptionScopes = [
+  
+]
+param networkManagerNetworkGroups = {
+  
+}
+param networkManagerSecurityAdminConfigurations = {
+
+}
+
