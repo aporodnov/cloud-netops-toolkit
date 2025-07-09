@@ -13,6 +13,7 @@ param networkManagerSubscriptionScopes = [
   '/subscriptions/a31fc76b-e874-4a57-98b2-3d312d195025'
   '/subscriptions/e6f19bf3-8bef-4939-95dc-b7b7092ea430'
 ]
+// Setup virtual network that will be in scope for security admin rules (VNETs must reside within the SubscriptionScope)
 param networkManagerNetworkGroups = [
   {
     name: 'ManagedWorkloads-SpokesNG'
@@ -29,7 +30,11 @@ param networkManagerNetworkGroups = [
     ]
   }
 ]
-// param networkManagerSecurityAdminConfigurations = {
-
-// }
+// Setup Security Admin Config
+param networkManagerSecurityAdminConfigurations = [
+  {
+    name: 'CentralSecurityAdminRules'
+    description: 'override NIC NSG with this rule collection on managedWorkloads vnets'
+  }
+]
 
