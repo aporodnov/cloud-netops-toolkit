@@ -22,5 +22,8 @@ module automationAccount 'br/public:avm/res/automation/automation-account:0.15.0
   scope: AA_RG
   params: {
     name: AAName
+    managedIdentities: {
+      systemAssigned: true
+    }
   }
 }
