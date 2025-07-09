@@ -122,24 +122,54 @@ try {
     $managementGroup = Get-AzManagementGroup -GroupName $ManagementGroupName -Expand -Recurse
     $subscriptions = @()
     
+    Write-Output "Management Group Details:"
+    Write-Output "Name: $($managementGroup.Name)"
+    Write-Output "DisplayName: $($managementGroup.DisplayName)"
+    Write-Output "Children Count: $($managementGroup.Children.Count)"
+    
     # Extract subscriptions from management group hierarchy
     function Get-SubscriptionsFromMG {
         param($MG)
         
+        Write-Output "Processing Management Group: $($MG.Name) with $($MG.Children.Count) children"
+        
         if ($MG.Children) {
             foreach ($child in $MG.Children) {
-                if ($child.Type -eq "/providers/Microsoft.Management/managementGroups") {
-                    Get-SubscriptionsFromMG -MG $child
-                } elseif ($child.Type -eq "/providers/Microsoft.Management/managementGroups/subscriptions") {
+                Write-Output "Child Name: $($child.Name), Type: $($child.Type), DisplayName: $($child.DisplayName)"
+                
+                if ($child.Type -eq "Microsoft.Management/managementGroups") {
+                    # Recursively process nested management groups
+                    try {
+                        $childMG = Get-AzManagementGroup -GroupName $child.Name -Expand -Recurse
+                        Get-SubscriptionsFromMG -MG $childMG
+                    } catch {
+                        Write-Warning "Failed to get child management group $($child.Name): $($_.Exception.Message)"
+                    }
+                } elseif ($child.Type -eq "/subscriptions") {
+                    # Add subscription to the list
                     $script:subscriptions += $child.Name
+                    Write-Output "Added subscription: $($child.Name) ($($child.DisplayName))"
                 }
             }
+        } else {
+            Write-Output "No children found in management group: $($MG.Name)"
         }
     }
     
     Get-SubscriptionsFromMG -MG $managementGroup
     
     Write-Output "Found $($subscriptions.Count) subscriptions in Management Group $ManagementGroupName"
+    
+    if ($subscriptions.Count -eq 0) {
+        Write-Warning "No subscriptions found in management group hierarchy. Please verify the management group structure."
+        exit 0
+    }
+    
+    # List found subscriptions
+    Write-Output "Subscriptions found:"
+    foreach ($sub in $subscriptions) {
+        Write-Output "  - $sub"
+    }
     
     # Process subscriptions in parallel
     $subscriptions | ForEach-Object -Parallel {
