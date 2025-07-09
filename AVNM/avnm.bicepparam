@@ -66,7 +66,7 @@ param networkManagerSecurityAdminConfigurations = [
               protocol: 'Tcp'
             }
             {
-              access: 'Deny'
+              access: 'AlwaysAllow'
               description: 'test-outbound-deny-rule-2-description'
               direction: 'Outbound'
               name: 'test-outbound-deny-rule-2'

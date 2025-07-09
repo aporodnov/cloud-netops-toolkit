@@ -1,0 +1,54 @@
+name: 1. Deploy_AutomationAccount
+
+on: 
+    workflow_dispatch:
+        inputs:
+            environment:
+                type: string
+                description: 'Environment to deploy to: dev, prod'
+                required: false
+
+env:
+    Location: "canadacentral"
+
+permissions:
+    id-token: write
+    contents: read
+
+jobs:
+    Deploy_AutomationAccount:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout Repository
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Azure Login
+              uses: azure/login@v2
+              with:
+                  client-id: ${{ secrets.AZURE_CLIENT_ID }}
+                  tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+                  subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+            - name: Set Az Context
+              uses: azure/cli@v2
+              with:
+                  azcliversion: latest
+                  inlineScript: |
+                    az account set --subscription ${{ secrets.AZURE_CONNECTIVITY_SUBSCRIPTION_ID }}
+                    az account show
+
+            - name: Deploy AVNM
+              uses: azure/cli@v2
+              with:
+                  azcliversion: latest
+                  inlineScript: |
+                    az stack sub create \
+                    --name "AA-DeploymentStack" \
+                    --location ${{ env.Location }} \
+                    --template-file AutomationAccount/aa.bicep \
+                    --parameters AutomationAccount/aa.bicepparam \
+                    --action-on-unmanage 'detachAll' \
+                    --deny-settings-mode 'denyDelete' \
+                    --deny-settings-excluded-principals '${{ secrets.SPN_OBJECT_ID }}'
