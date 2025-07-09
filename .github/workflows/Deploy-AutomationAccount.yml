@@ -39,7 +39,7 @@ jobs:
                     az account set --subscription ${{ secrets.AZURE_CONNECTIVITY_SUBSCRIPTION_ID }}
                     az account show
 
-            - name: Deploy AVNM
+            - name: Deploy AutomationAccount
               uses: azure/cli@v2
               with:
                   azcliversion: latest

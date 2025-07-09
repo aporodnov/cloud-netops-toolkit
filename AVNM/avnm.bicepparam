@@ -1,11 +1,11 @@
 using 'avnm.bicep'
 
-param resourceGroupName = 'AVNM-RG'
+param resourceGroupName = 'NetOpsToolkit-RG'
 param location = 'canadacentral'
 
 param tags = {
   Environment: 'Production'
-  ApplicationName: 'AVNM'
+  ApplicationName: 'NetOpsToolkit'
 }
 
 param networkManagerName = 'NetworkManager-01'
