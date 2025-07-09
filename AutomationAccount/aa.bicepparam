@@ -9,3 +9,15 @@ param tags = {
 }
 
 param AAName = 'NetOpsToolkit-AA'
+
+param automationAccountSchedules = [
+  {
+        advancedSchedule: {}
+        expiryTime: '9999-12-31T13:00'
+        frequency: 'Hour'
+        interval: 1
+        name: 'HourlySchedule'
+        startTime: ''
+        timeZone: 'America/Vancouver'
+  }
+]
