@@ -2,7 +2,7 @@
 
 param(
     [Parameter(Mandatory = $false)]
-    [string]$ManagementGroupId = "ManagedWorkloads"
+    [string]$ManagementGroupName = "ManagedWorkloads"
 )
 
 # Login to Azure using Managed Identity
@@ -116,9 +116,10 @@ function Process-SubscriptionNICs {
 # Main execution
 try {
     # Get all subscriptions under the specified management group
-    Write-Output "Getting subscriptions under Management Group: $ManagementGroupId"
+    Write-Output "Getting subscriptions under Management Group: $ManagementGroupName"
     
-    $managementGroup = Get-AzManagementGroup -GroupId $ManagementGroupId -Expand -Recurse
+    # Using -GroupName parameter with the renamed variable
+    $managementGroup = Get-AzManagementGroup -GroupName $ManagementGroupName -Expand -Recurse
     $subscriptions = @()
     
     # Extract subscriptions from management group hierarchy
@@ -127,9 +128,9 @@ try {
         
         if ($MG.Children) {
             foreach ($child in $MG.Children) {
-                if ($child.Type -eq "Microsoft.Management/managementGroups") {
+                if ($child.Type -eq "/providers/Microsoft.Management/managementGroups") {
                     Get-SubscriptionsFromMG -MG $child
-                } elseif ($child.Type -eq "Microsoft.Management/managementGroups/subscriptions") {
+                } elseif ($child.Type -eq "/providers/Microsoft.Management/managementGroups/subscriptions") {
                     $script:subscriptions += $child.Name
                 }
             }
@@ -138,7 +139,7 @@ try {
     
     Get-SubscriptionsFromMG -MG $managementGroup
     
-    Write-Output "Found $($subscriptions.Count) subscriptions in Management Group $ManagementGroupId"
+    Write-Output "Found $($subscriptions.Count) subscriptions in Management Group $ManagementGroupName"
     
     # Process subscriptions in parallel
     $subscriptions | ForEach-Object -Parallel {
