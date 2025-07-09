@@ -21,3 +21,10 @@ param automationAccountSchedules = [
         timeZone: 'America/Vancouver'
   }
 ]
+
+param automationAccountJobSchedules = [
+  {
+    runbookName: 'Deploy-NSGtoNIC'
+    scheduleName: 'HourlySchedule'
+  }
+]
