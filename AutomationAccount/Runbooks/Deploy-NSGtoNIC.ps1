@@ -8,7 +8,7 @@ param(
 # Login to Azure using Managed Identity
 try {
     Write-Output "Connecting to Azure with Managed Identity..."
-    Connect-AzAccount -Identity
+    Connect-AzAccount -Identity | Out-Null
     Write-Output "Successfully connected to Azure"
 } catch {
     Write-Error "Failed to connect to Azure: $($_.Exception.Message)"
@@ -23,7 +23,7 @@ function New-DefaultNSG {
         [string]$Location
     )
     
-    Write-Output "Creating NSG: $NSGName in Resource Group: $ResourceGroupName with built-in rules only"
+    Write-Output "Creating NSG: $NSGName in Resource Group: $ResourceGroupName"
     
     try {
         # Create NSG with no custom security rules (only built-in rules will be present)
@@ -57,19 +57,24 @@ function Get-VMNameFromResourceId {
 # Function to process NICs in a subscription
 function Process-SubscriptionNICs {
     param(
-        [string]$SubscriptionId
+        [string]$SubscriptionId,
+        [string]$SubscriptionName
     )
     
     try {
-        Write-Output "Processing subscription: $SubscriptionId"
-        Set-AzContext -SubscriptionId $SubscriptionId
+        # Set context silently
+        Set-AzContext -SubscriptionId $SubscriptionId | Out-Null
         
         # Get all NICs that are attached to VMs
         $nics = Get-AzNetworkInterface | Where-Object { 
             $_.VirtualMachine -ne $null 
         }
         
-        Write-Output "Found $($nics.Count) NICs attached to VMs in subscription $SubscriptionId"
+        Write-Output "[$SubscriptionName] Found $($nics.Count) NICs attached to VMs"
+        
+        if ($nics.Count -eq 0) {
+            return
+        }
         
         foreach ($nic in $nics) {
             try {
@@ -81,35 +86,33 @@ function Process-SubscriptionNICs {
                 $vmName = Get-VMNameFromResourceId -ResourceId $nic.VirtualMachine.Id
                 
                 if (-not $vmName) {
-                    Write-Warning "Could not determine VM name for NIC $nicName. Skipping..."
+                    Write-Warning "[$SubscriptionName] Could not determine VM name for NIC $nicName. Skipping..."
                     continue
                 }
                 
                 $nsgName = "$vmName-NSG"
                 
-                Write-Output "Processing NIC: $nicName (attached to VM: $vmName)"
-                
                 # Check if NIC already has NSG attached
                 if ($nic.NetworkSecurityGroup -ne $null) {
-                    Write-Output "NIC $nicName already has NSG attached. Skipping..."
+                    Write-Output "[$SubscriptionName] NIC $nicName (VM: $vmName) already has NSG attached. Skipping..."
                     continue
                 }
+                
+                Write-Output "[$SubscriptionName] Processing NIC: $nicName (VM: $vmName)"
                 
                 # Check if NSG with name [VMName-NSG] exists in the same resource group
                 $existingNSG = Get-AzNetworkSecurityGroup -Name $nsgName -ResourceGroupName $resourceGroupName -ErrorAction SilentlyContinue
                 
                 if ($existingNSG) {
-                    Write-Output "NSG $nsgName already exists. Attaching to NIC $nicName"
+                    Write-Output "[$SubscriptionName] NSG $nsgName already exists. Attaching to NIC..."
                     $nsg = $existingNSG
                 } else {
-                    Write-Output "NSG $nsgName does not exist. Creating new NSG with built-in rules only..."
+                    Write-Output "[$SubscriptionName] Creating new NSG: $nsgName"
                     $nsg = New-DefaultNSG -NSGName $nsgName -ResourceGroupName $resourceGroupName -Location $location
                 }
                 
                 # Validate NSG object before attachment
                 if ($nsg -and $nsg.Id) {
-                    Write-Output "Attaching NSG $nsgName (ID: $($nsg.Id)) to NIC $nicName"
-                    
                     # Refresh the NIC object to get the latest state
                     $refreshedNic = Get-AzNetworkInterface -Name $nicName -ResourceGroupName $resourceGroupName
                     
@@ -121,21 +124,21 @@ function Process-SubscriptionNICs {
                     $result = Set-AzNetworkInterface -NetworkInterface $refreshedNic
                     
                     if ($result.ProvisioningState -eq "Succeeded") {
-                        Write-Output "Successfully attached NSG $nsgName to NIC $nicName"
+                        Write-Output "[$SubscriptionName] Successfully attached NSG $nsgName to NIC $nicName"
                     } else {
-                        Write-Warning "NSG attachment may have failed. ProvisioningState: $($result.ProvisioningState)"
+                        Write-Warning "[$SubscriptionName] NSG attachment may have failed. ProvisioningState: $($result.ProvisioningState)"
                     }
                 } else {
-                    Write-Error "Failed to create or retrieve NSG $nsgName - NSG object is null or missing ID"
+                    Write-Error "[$SubscriptionName] Failed to create or retrieve NSG $nsgName"
                 }
                 
             } catch {
-                Write-Error "Failed to process NIC $nicName`: $($_.Exception.Message)"
+                Write-Error "[$SubscriptionName] Failed to process NIC $nicName`: $($_.Exception.Message)"
             }
         }
         
     } catch {
-        Write-Error "Failed to process subscription $SubscriptionId`: $($_.Exception.Message)"
+        Write-Error "[$SubscriptionName] Failed to process subscription: $($_.Exception.Message)"
     }
 }
 
@@ -148,21 +151,14 @@ try {
     $managementGroup = Get-AzManagementGroup -GroupName $ManagementGroupName -Expand -Recurse
     $subscriptions = @()
     
-    Write-Output "Management Group Details:"
-    Write-Output "Name: $($managementGroup.Name)"
-    Write-Output "DisplayName: $($managementGroup.DisplayName)"
-    Write-Output "Children Count: $($managementGroup.Children.Count)"
+    Write-Output "Management Group: $($managementGroup.DisplayName) ($($managementGroup.Children.Count) subscriptions)"
     
     # Extract subscriptions from management group hierarchy
     function Get-SubscriptionsFromMG {
         param($MG)
         
-        Write-Output "Processing Management Group: $($MG.Name) with $($MG.Children.Count) children"
-        
         if ($MG.Children) {
             foreach ($child in $MG.Children) {
-                Write-Output "Child Name: $($child.Name), Type: $($child.Type), DisplayName: $($child.DisplayName)"
-                
                 if ($child.Type -eq "Microsoft.Management/managementGroups") {
                     # Recursively process nested management groups
                     try {
@@ -173,43 +169,36 @@ try {
                     }
                 } elseif ($child.Type -eq "/subscriptions") {
                     # Add subscription to the list
-                    $script:subscriptions += $child.Name
-                    Write-Output "Added subscription: $($child.Name) ($($child.DisplayName))"
+                    $script:subscriptions += @{
+                        Id = $child.Name
+                        Name = $child.DisplayName
+                    }
+                    Write-Output "Found subscription: $($child.DisplayName)"
                 }
             }
-        } else {
-            Write-Output "No children found in management group: $($MG.Name)"
         }
     }
     
     Get-SubscriptionsFromMG -MG $managementGroup
     
-    Write-Output "Found $($subscriptions.Count) subscriptions in Management Group $ManagementGroupName"
-    
     if ($subscriptions.Count -eq 0) {
-        Write-Warning "No subscriptions found in management group hierarchy. Please verify the management group structure."
+        Write-Warning "No subscriptions found in management group hierarchy."
         exit 0
     }
     
-    # List found subscriptions
-    Write-Output "Subscriptions found:"
-    foreach ($sub in $subscriptions) {
-        Write-Output "  - $sub"
-    }
+    Write-Output "Processing $($subscriptions.Count) subscriptions for NSG attachment..."
+    Write-Output ""
     
-    # Process subscriptions sequentially to avoid parameter set issues
-    Write-Output "Processing subscriptions sequentially..."
-    
-    foreach ($subscriptionId in $subscriptions) {
+    # Process subscriptions sequentially
+    foreach ($subscription in $subscriptions) {
         try {
-            Write-Output "=" * 50
-            Write-Output "Processing subscription: $subscriptionId"
-            Process-SubscriptionNICs -SubscriptionId $subscriptionId
+            Process-SubscriptionNICs -SubscriptionId $subscription.Id -SubscriptionName $subscription.Name
         } catch {
-            Write-Error "Failed to process subscription $subscriptionId : $($_.Exception.Message)"
+            Write-Error "Failed to process subscription $($subscription.Name): $($_.Exception.Message)"
         }
     }
     
+    Write-Output ""
     Write-Output "NSG attachment process completed for all subscriptions"
     
 } catch {
