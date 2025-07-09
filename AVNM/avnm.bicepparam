@@ -35,7 +35,9 @@ param networkManagerSecurityAdminConfigurations = [
   {
     name: 'CentralSecurityAdminRules'
     description: 'override NIC NSG with this rule collection on managedWorkloads vnets'
-    applyOnNetworkIntentPolicyBasedServices: 'None'
+    applyOnNetworkIntentPolicyBasedServices: [
+      'None'
+    ]
   }
 ]
 
