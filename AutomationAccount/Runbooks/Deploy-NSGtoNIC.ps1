@@ -25,10 +25,20 @@ function New-DefaultNSG {
     
     Write-Output "Creating NSG: $NSGName in Resource Group: $ResourceGroupName with built-in rules only"
     
-    # Create NSG with no custom security rules (only built-in rules will be present)
-    $nsg = New-AzNetworkSecurityGroup -Name $NSGName -ResourceGroupName $ResourceGroupName -Location $Location
-    
-    return $nsg
+    try {
+        # Create NSG with no custom security rules (only built-in rules will be present)
+        $nsg = New-AzNetworkSecurityGroup -Name $NSGName -ResourceGroupName $ResourceGroupName -Location $Location
+        
+        # Ensure we return a single object, not an array
+        if ($nsg -is [array]) {
+            return $nsg[0]
+        }
+        return $nsg
+        
+    } catch {
+        Write-Error "Failed to create NSG $NSGName in resource group $ResourceGroupName`: $($_.Exception.Message)"
+        throw
+    }
 }
 
 # Function to get VM name from VM resource ID
@@ -96,12 +106,28 @@ function Process-SubscriptionNICs {
                     $nsg = New-DefaultNSG -NSGName $nsgName -ResourceGroupName $resourceGroupName -Location $location
                 }
                 
-                # Attach NSG to NIC
-                Write-Output "Attaching NSG $nsgName to NIC $nicName"
-                $nic.NetworkSecurityGroup = $nsg
-                Set-AzNetworkInterface -NetworkInterface $nic
-                
-                Write-Output "Successfully attached NSG $nsgName to NIC $nicName"
+                # Validate NSG object before attachment
+                if ($nsg -and $nsg.Id) {
+                    Write-Output "Attaching NSG $nsgName (ID: $($nsg.Id)) to NIC $nicName"
+                    
+                    # Refresh the NIC object to get the latest state
+                    $refreshedNic = Get-AzNetworkInterface -Name $nicName -ResourceGroupName $resourceGroupName
+                    
+                    # Attach NSG to NIC using the ID reference
+                    $refreshedNic.NetworkSecurityGroup = @{
+                        Id = $nsg.Id
+                    }
+                    
+                    $result = Set-AzNetworkInterface -NetworkInterface $refreshedNic
+                    
+                    if ($result.ProvisioningState -eq "Succeeded") {
+                        Write-Output "Successfully attached NSG $nsgName to NIC $nicName"
+                    } else {
+                        Write-Warning "NSG attachment may have failed. ProvisioningState: $($result.ProvisioningState)"
+                    }
+                } else {
+                    Write-Error "Failed to create or retrieve NSG $nsgName - NSG object is null or missing ID"
+                }
                 
             } catch {
                 Write-Error "Failed to process NIC $nicName`: $($_.Exception.Message)"
@@ -176,6 +202,7 @@ try {
     
     foreach ($subscriptionId in $subscriptions) {
         try {
+            Write-Output "=" * 50
             Write-Output "Processing subscription: $subscriptionId"
             Process-SubscriptionNICs -SubscriptionId $subscriptionId
         } catch {
