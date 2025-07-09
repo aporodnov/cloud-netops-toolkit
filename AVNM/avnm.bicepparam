@@ -31,6 +31,7 @@ param networkManagerNetworkGroups = [
   }
 ]
 // Setup Security Admin Config
+param subscriptionId = 'ccf12f80-8b9f-4db9-a5d2-0e8e6b7785a9'
 param networkManagerSecurityAdminConfigurations = [
   {
     name: 'CentralSecurityAdminRules'
@@ -38,6 +39,52 @@ param networkManagerSecurityAdminConfigurations = [
     applyOnNetworkIntentPolicyBasedServices: [
       'None'
     ]
+    ruleCollections: [
+      {
+        name: 'CentralRuleCollection'
+        appliesToGroups: [
+          {
+            networkGroupResourceId: '/subscriptions/${subscriptionId}/resourceGroups/${resourceGroupName}/providers/Microsoft.Network/networkManagers/${networkManagerName}/networkGroups/${networkManagerNetworkGroups[0].name}'
+          }
+        ]
+        rules: [
+            {
+              access: 'Allow'
+              destinationPortRanges: [
+                '442-445'
+                '80'
+              ]
+              destinations: [
+                {
+                  addressPrefix: '192.168.20.20'
+                  addressPrefixType: 'IPPrefix'
+                }
+              ]
+              direction: 'Inbound'
+              name: 'test-inbound-allow-rule-3'
+              priority: 250
+              protocol: 'Tcp'
+            }
+            {
+              access: 'Deny'
+              description: 'test-outbound-deny-rule-2-description'
+              direction: 'Outbound'
+              name: 'test-outbound-deny-rule-2'
+              priority: 200
+              protocol: 'Tcp'
+              sourcePortRanges: [
+                '442-445'
+                '80'
+              ]
+              sources: [
+                {
+                  addressPrefix: 'AppService.WestEurope'
+                  addressPrefixType: 'ServiceTag'
+                }
+              ]
+            }
+        ]
+      }
+    ]
   }
 ]
-

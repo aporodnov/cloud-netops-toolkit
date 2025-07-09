@@ -19,6 +19,7 @@ param networkManagerName string
 param networkManagerSubscriptionScopes array
 param networkManagerNetworkGroups array
 param networkManagerSecurityAdminConfigurations array
+param subscriptionId string
 
 module networkManager 'br/public:avm/res/network/network-manager:0.5.2' = {
   name: 'AVNM_Instance_Deployment'
