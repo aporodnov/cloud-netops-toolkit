@@ -171,98 +171,17 @@ try {
         Write-Output "  - $sub"
     }
     
-    # Process subscriptions in parallel
-    $subscriptions | ForEach-Object -Parallel {
-        # Import required modules in parallel runspace
-        Import-Module Az.Network, Az.Resources
-        
-        # Redefine functions in parallel runspace
-        function New-DefaultNSG {
-            param(
-                [string]$NSGName,
-                [string]$ResourceGroupName,
-                [string]$Location
-            )
-            
-            Write-Output "Creating NSG: $NSGName in Resource Group: $ResourceGroupName with built-in rules only"
-            
-            # Create NSG with no custom security rules (only built-in rules will be present)
-            $nsg = New-AzNetworkSecurityGroup -Name $NSGName -ResourceGroupName $ResourceGroupName -Location $Location
-            
-            return $nsg
-        }
-        
-        function Get-VMNameFromResourceId {
-            param(
-                [string]$ResourceId
-            )
-            
-            if ($ResourceId) {
-                $vmName = $ResourceId.Split('/')[-1]
-                return $vmName
-            }
-            return $null
-        }
-        
-        # Process subscription
+    # Process subscriptions sequentially to avoid parameter set issues
+    Write-Output "Processing subscriptions sequentially..."
+    
+    foreach ($subscriptionId in $subscriptions) {
         try {
-            Write-Output "Processing subscription: $_"
-            Set-AzContext -SubscriptionId $_
-            
-            $nics = Get-AzNetworkInterface | Where-Object { 
-                $_.VirtualMachine -ne $null 
-            }
-            
-            Write-Output "Found $($nics.Count) NICs attached to VMs in subscription $_"
-            
-            foreach ($nic in $nics) {
-                try {
-                    $nicName = $nic.Name
-                    $resourceGroupName = $nic.ResourceGroupName
-                    $location = $nic.Location
-                    
-                    # Get VM name from the VM resource ID
-                    $vmName = Get-VMNameFromResourceId -ResourceId $nic.VirtualMachine.Id
-                    
-                    if (-not $vmName) {
-                        Write-Warning "Could not determine VM name for NIC $nicName. Skipping..."
-                        continue
-                    }
-                    
-                    $nsgName = "$vmName-NSG"
-                    
-                    Write-Output "Processing NIC: $nicName (attached to VM: $vmName)"
-                    
-                    if ($nic.NetworkSecurityGroup -ne $null) {
-                        Write-Output "NIC $nicName already has NSG attached. Skipping..."
-                        continue
-                    }
-                    
-                    $existingNSG = Get-AzNetworkSecurityGroup -Name $nsgName -ResourceGroupName $resourceGroupName -ErrorAction SilentlyContinue
-                    
-                    if ($existingNSG) {
-                        Write-Output "NSG $nsgName already exists. Attaching to NIC $nicName"
-                        $nsg = $existingNSG
-                    } else {
-                        Write-Output "NSG $nsgName does not exist. Creating new NSG with built-in rules only..."
-                        $nsg = New-DefaultNSG -NSGName $nsgName -ResourceGroupName $resourceGroupName -Location $location
-                    }
-                    
-                    Write-Output "Attaching NSG $nsgName to NIC $nicName"
-                    $nic.NetworkSecurityGroup = $nsg
-                    Set-AzNetworkInterface -NetworkInterface $nic
-                    
-                    Write-Output "Successfully attached NSG $nsgName to NIC $nicName"
-                    
-                } catch {
-                    Write-Error "Failed to process NIC $nicName`: $($_.Exception.Message)"
-                }
-            }
-            
+            Write-Output "Processing subscription: $subscriptionId"
+            Process-SubscriptionNICs -SubscriptionId $subscriptionId
         } catch {
-            Write-Error "Failed to process subscription $_ : $($_.Exception.Message)"
+            Write-Error "Failed to process subscription $subscriptionId : $($_.Exception.Message)"
         }
-    } -ThrottleLimit 5
+    }
     
     Write-Output "NSG attachment process completed for all subscriptions"
     
