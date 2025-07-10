@@ -58,5 +58,5 @@ jobs:
                   --automation-account-name "${{ env.AutomationAccountName }}" \
                   --resource-group "${{ env.ResourceGroupName }}" \
                   --source-control-name "${{ env.SourceControlName }}" \
-                  --job-id "" \
+                  --job-id "$(uuidgen)" \
                   --commit-id ""
