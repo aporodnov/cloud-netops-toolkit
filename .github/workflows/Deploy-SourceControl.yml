@@ -37,20 +37,16 @@ jobs:
                   tenant-id: ${{ secrets.AZURE_TENANT_ID }}
                   subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-            - name: Deploy Source Control
-              uses: azure/powershell@v2
-              with:
-                  inlineScript: |
-                    Set-AzContext -SubscriptionId "${{ secrets.AZURE_CONNECTIVITY_SUBSCRIPTION_ID }}"
-                    
-                    $accessToken = ConvertTo-SecureString -String "${{ secrets.GH_TOKEN }}" -AsPlainText -Force
-                    
-                    New-AzAutomationSourceControl -ResourceGroupName "${{ env.ResourceGroupName }}" `
-                                                  -AutomationAccountName "${{ env.AutomationAccountName }}" `
-                                                  -Name "${{ env.SourceControlName }}" `
-                                                  -RepoUrl "https://github.com/${{ github.repository }}.git" `
-                                                  -SourceType "${{ env.SourceType }}" `
-                                                  -Branch "${{ env.Branch }}" `
-                                                  -FolderPath "${{ env.FolderPath }}" `
-                                                  -AccessToken $accessToken
-                  azPSVersion: "latest"
+            - name: Deploy Source Control (Azure CLI)
+              run: |
+                az account set --subscription "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+
+                az automation source-control create \
+                --resource-group "${{ env.ResourceGroupName }}" \
+                --automation-account-name "${{ env.AutomationAccountName }}" \
+                --name "${{ env.SourceControlName }}" \
+                --repo-url "https://github.com/${{ github.repository }}.git" \
+                --source-type "${{ env.SourceType }}" \
+                --branch "${{ env.Branch }}" \
+                --folder-path "${{ env.FolderPath }}" \
+                --access-token "${{ secrets.GH_PAT }}"
