@@ -1,0 +1,62 @@
+name: 1. Deploy-SourceControl
+
+on: 
+    workflow_dispatch:
+        inputs:
+            environment:
+                type: string
+                description: 'Environment to deploy to: dev, prod'
+                required: false
+
+env:
+    Location: "canadacentral"
+    ResourceGroupName: "NetOpsToolkit-RG"
+    AutomationAccountName: "NetOpsToolkit-AA"
+    SourceControlName: "cloud-netops-toolkit"
+    SourceType: "GitHub"
+    Branch: "main"
+    FolderPath: "/AutomationAccount/Runbooks"
+
+permissions:
+    id-token: write
+    contents: read
+
+jobs:
+    Deploy-SourceControl:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout Repository
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Azure Login
+              uses: azure/login@v2
+              with:
+                  client-id: ${{ secrets.AZURE_CLIENT_ID }}
+                  tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+                  subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+            - name: Set Az Context
+              uses: azure/cli@v2
+              with:
+                  azcliversion: latest
+                  inlineScript: |
+                    az account set --subscription ${{ secrets.AZURE_CONNECTIVITY_SUBSCRIPTION_ID }}
+                    az account show
+
+            - name: Deploy Source Control
+              uses: azure/powershell@v2
+              with:
+                  inlineScript: |
+                    $accessToken = ConvertTo-SecureString -String "${{ secrets.GH_TOKEN }}" -AsPlainText -Force
+                    
+                    New-AzAutomationSourceControl -ResourceGroupName "${{ env.ResourceGroupName }}" `
+                                                  -AutomationAccountName "${{ env.AutomationAccountName }}" `
+                                                  -Name "${{ env.SourceControlName }}" `
+                                                  -RepoUrl "https://github.com/${{ github.repository }}.git" `
+                                                  -SourceType "${{ env.SourceType }}" `
+                                                  -Branch "${{ env.Branch }}" `
+                                                  -FolderPath "${{ env.FolderPath }}" `
+                                                  -AccessToken $accessToken
+                  azPSVersion: "latest"
