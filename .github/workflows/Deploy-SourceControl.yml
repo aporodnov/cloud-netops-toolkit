@@ -53,3 +53,10 @@ jobs:
                   --token-type "PersonalAccessToken" \
                   --publish-runbook true \
                   --auto-sync true
+
+                az automation source-control sync-job create \
+                  --automation-account-name "${{ env.AutomationAccountName }}" \
+                  --resource-group "${{ env.ResourceGroupName }}" \
+                  --source-control-name "${{ env.SourceControlName }}" \
+                  --job-id "" \
+                  --commit-id ""
