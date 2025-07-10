@@ -37,18 +37,12 @@ jobs:
                   tenant-id: ${{ secrets.AZURE_TENANT_ID }}
                   subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-            - name: Set Az Context
-              uses: azure/cli@v2
-              with:
-                  azcliversion: latest
-                  inlineScript: |
-                    az account set --subscription ${{ secrets.AZURE_CONNECTIVITY_SUBSCRIPTION_ID }}
-                    az account show
-
             - name: Deploy Source Control
               uses: azure/powershell@v2
               with:
                   inlineScript: |
+                    Set-AzContext -SubscriptionId "${{ secrets.AZURE_CONNECTIVITY_SUBSCRIPTION_ID }}"
+                    
                     $accessToken = ConvertTo-SecureString -String "${{ secrets.GH_TOKEN }}" -AsPlainText -Force
                     
                     New-AzAutomationSourceControl -ResourceGroupName "${{ env.ResourceGroupName }}" `
