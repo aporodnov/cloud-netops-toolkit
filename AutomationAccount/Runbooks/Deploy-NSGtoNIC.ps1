@@ -2,7 +2,9 @@
 
 param(
     [Parameter(Mandatory = $false)]
-    [string]$ManagementGroupName = "ManagedWorkloads"
+    [string]$ManagementGroupName = "ManagedWorkloads",
+    [Parameter(Mandatory = $false)]
+    [string]$NSGSuffix = "Nsg"
 )
 
 # Login to Azure using Managed Identity
@@ -65,12 +67,12 @@ function Process-SubscriptionNICs {
         # Set context silently
         Set-AzContext -SubscriptionId $SubscriptionId | Out-Null
         
-        # Get all NICs that are attached to VMs
+        # Get all NICs that are attached to VMs or are not attached to anything
         $nics = Get-AzNetworkInterface | Where-Object { 
-            $_.VirtualMachine -ne $null 
+            $_.VirtualMachine -ne $null -or $_.VirtualMachine -eq $null
         }
         
-        Write-Output "[$SubscriptionName] Found $($nics.Count) NICs attached to VMs"
+        Write-Output "[$SubscriptionName] Found $($nics.Count) NICs (attached to VMs or empty NICs)"
         
         if ($nics.Count -eq 0) {
             return
@@ -81,28 +83,32 @@ function Process-SubscriptionNICs {
                 $nicName = $nic.Name
                 $resourceGroupName = $nic.ResourceGroupName
                 $location = $nic.Location
-                
-                # Get VM name from the VM resource ID
-                $vmName = Get-VMNameFromResourceId -ResourceId $nic.VirtualMachine.Id
-                
+
+                # Determine VM name if attached, otherwise use NIC name
+                if ($nic.VirtualMachine -ne $null) {
+                    $vmName = Get-VMNameFromResourceId -ResourceId $nic.VirtualMachine.Id
+                } else {
+                    $vmName = $nicName
+                }
+
                 if (-not $vmName) {
-                    Write-Warning "[$SubscriptionName] Could not determine VM name for NIC $nicName. Skipping..."
+                    Write-Warning "[$SubscriptionName] Could not determine name for NIC $nicName. Skipping..."
                     continue
                 }
-                
-                $nsgName = "$vmName-NSG"
-                
+
+                $nsgName = "$vmName-$NSGSuffix"
+
                 # Check if NIC already has NSG attached
                 if ($nic.NetworkSecurityGroup -ne $null) {
                     Write-Output "[$SubscriptionName] NIC $nicName (VM: $vmName) already has NSG attached. Skipping..."
                     continue
                 }
-                
+
                 Write-Output "[$SubscriptionName] Processing NIC: $nicName (VM: $vmName)"
-                
+
                 # Check if NSG with name [VMName-NSG] exists in the same resource group
                 $existingNSG = Get-AzNetworkSecurityGroup -Name $nsgName -ResourceGroupName $resourceGroupName -ErrorAction SilentlyContinue
-                
+
                 if ($existingNSG) {
                     Write-Output "[$SubscriptionName] NSG $nsgName already exists. Attaching to NIC..."
                     $nsg = $existingNSG
@@ -110,19 +116,19 @@ function Process-SubscriptionNICs {
                     Write-Output "[$SubscriptionName] Creating new NSG: $nsgName"
                     $nsg = New-DefaultNSG -NSGName $nsgName -ResourceGroupName $resourceGroupName -Location $location
                 }
-                
+
                 # Validate NSG object before attachment
                 if ($nsg -and $nsg.Id) {
                     # Refresh the NIC object to get the latest state
                     $refreshedNic = Get-AzNetworkInterface -Name $nicName -ResourceGroupName $resourceGroupName
-                    
+
                     # Attach NSG to NIC using the ID reference
                     $refreshedNic.NetworkSecurityGroup = @{
                         Id = $nsg.Id
                     }
-                    
+
                     $result = Set-AzNetworkInterface -NetworkInterface $refreshedNic
-                    
+
                     if ($result.ProvisioningState -eq "Succeeded") {
                         Write-Output "[$SubscriptionName] Successfully attached NSG $nsgName to NIC $nicName"
                     } else {
@@ -131,7 +137,7 @@ function Process-SubscriptionNICs {
                 } else {
                     Write-Error "[$SubscriptionName] Failed to create or retrieve NSG $nsgName"
                 }
-                
+
             } catch {
                 Write-Error "[$SubscriptionName] Failed to process NIC $nicName`: $($_.Exception.Message)"
             }
