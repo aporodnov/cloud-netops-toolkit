@@ -78,7 +78,7 @@ jobs:
           azcliversion: latest
           inlineScript: |
             az deployment sub create \
-              --name "NSG-Deployment-${{ matrix.nsgconfig }}" \
+              --name "NSG-Deployment-${{ matrix.nsgconfig }}-${{ github.job }}" \
               --location ${{ env.Location }} \
               --template-file SecurityRules/modules/nsg.bicep \
               --parameters SecurityRules/NSGConfig/${{ matrix.nsgconfig }}.bicepparam
