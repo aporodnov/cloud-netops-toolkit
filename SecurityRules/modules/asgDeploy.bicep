@@ -25,11 +25,16 @@ module asg 'asg.bicep' = {
   }
 }
 
+param vnetId string
+param subnetName string
+
 // Only deploy NIC association if nicIds is not empty
 module nicAsgAssoc 'nic-asg-assoc.bicep' = if (length(nicIds) > 0) {
   name: 'nicAsgAssoc'
   scope: RG
   params: {
+    vnetId: vnetId
+    subnetName: subnetName
     asgId: asg.outputs.asgId
     nicIds: nicIds
     location: location
