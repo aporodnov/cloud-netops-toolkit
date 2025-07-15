@@ -4,7 +4,7 @@ param(
     [Parameter(Mandatory = $false)]
     [string]$ManagementGroupName = "ManagedWorkloads",
     [Parameter(Mandatory = $false)]
-    [string]$NSGSuffix = "Nsg"
+    [string]$NSGSuffix = "NSG"
 )
 
 # Login to Azure using Managed Identity

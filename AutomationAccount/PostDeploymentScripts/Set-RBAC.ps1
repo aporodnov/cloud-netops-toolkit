@@ -6,6 +6,7 @@
 Connect-AzAccount
 
 # Get Automation Account system-managed identity
+Set-AzContext -Subscription #PLACE HERE SUBSCRIPTION ID WHERE AA CREATED"
 $aa = Get-AzAutomationAccount -ResourceGroupName "NetOpsToolkit-RG" -Name "NetOpsToolkit-AA"
 $SPNobjectID = $aa.Identity.PrincipalId
 

@@ -1,69 +1,71 @@
 name: 1. Deploy-NSGRules
 
 on: 
-    workflow_dispatch:
-        inputs:
-            VMName:
-                type: string
-                description: 'Type VM Name for which you deploy NSG'
-                required: true
-            Subscription:
-                type: choice
-                description: 'Select Azure Subscription'
-                options:
-                - Dev
-                - Test
-                - Prod
-                required: true
+  workflow_dispatch:
+    inputs:
+      VMName:
+        type: string
+        description: 'Type VM Name for which you deploy NSG'
+        required: true
+      Subscription:
+        type: choice
+        description: 'Select Subscription'
+        options:
+          - Application01
+          - Application02
+        required: true
+
 env:
-    Location: "canadacentral"
+  Location: "canadacentral"
 
 permissions:
-    id-token: write
-    contents: read
+  id-token: write
+  contents: read
 
 jobs:
-    Deploy-NSGRules:
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout Repository
-              uses: actions/checkout@v4
-              with:
-                  fetch-depth: 0
+  Deploy-NSGRules:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-            - name: Azure Login
-              uses: azure/login@v2
-              with:
-                  client-id: ${{ secrets.AZURE_CLIENT_ID }}
-                  tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-                  subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-            - name: Set Az Context
-              uses: azure/cli@v2
-              with:
-                  azcliversion: latest
-                  inlineScript: |
-                    # Map subscription name to GUID
-                    if [ "${{ github.event.inputs.Subscription }}" = "Dev" ]; then
-                    SUB_GUID="${{ secrets.AZURE_SUBSCRIPTION_ID_DEV }}"
-                    elif [ "${{ github.event.inputs.Subscription }}" = "Test" ]; then
-                    SUB_GUID="${{ secrets.AZURE_SUBSCRIPTION_ID_TEST }}"
-                    elif [ "${{ github.event.inputs.Subscription }}" = "Prod" ]; then
-                    SUB_GUID="${{ secrets.AZURE_SUBSCRIPTION_ID_PROD }}"
-                    else
-                    echo "Unknown subscription selected"
-                    exit 1
-                    fi
-                    az account set --subscription "$SUB_GUID"
-                    az account show
+      - name: Set Subscription ID Env
+        run: |
+          # Map subscription name to repository variable
+          sub_var="AZURE_SUBSCRIPTION_ID_${{ github.event.inputs.Subscription }}"
+          # Convert to uppercase to match GitHub variable naming
+          sub_var_upper=$(echo $sub_var | tr '[:lower:]' '[:upper:]')
+          # Use indirect expansion to get the value
+          echo "SUB_GUID=${!sub_var_upper}" >> $GITHUB_ENV
 
-            - name: Deploy-NSGRules
-              uses: azure/cli@v2
-              with:
-                  azcliversion: latest
-                  inlineScript: |
-                    az deployment sub create \
-                    --name "NSG-Deployment" \
-                    --location ${{ env.Location }} \
-                    --template-file SecurityRules/modules/nsg.bicep \
-                    --parameters SecurityRules/NSGConfig/${{ github.event.inputs.VMName }}.bicepparam \
+        env:
+          AZURE_SUBSCRIPTION_ID_APPLICATION01: ${{ vars.Application01 }}
+          AZURE_SUBSCRIPTION_ID_APPLICATION02: ${{ vars.Application02 }}
+
+      - name: Set Az Context
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            az account set --subscription "$SUB_GUID"
+            az account show
+
+      - name: Deploy-NSGRules
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            az deployment sub create \
+              --name "NSG-Deployment" \
+              --location ${{ env.Location }} \
+              --template-file SecurityRules/modules/nsg.bicep \
+              --parameters SecurityRules/NSGConfig/${{ github.event.inputs.VMName }}.bicepparam
