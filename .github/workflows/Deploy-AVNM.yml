@@ -2,14 +2,13 @@ name: 1. Deploy_AVNM
 
 on: 
     workflow_dispatch:
-        inputs:
-            environment:
-                type: string
-                description: 'Environment to deploy to: dev, prod'
-                required: false
 
 env:
     Location: "canadacentral"
+    RESOURCE_GROUP: "NetOpsToolkit-RG"
+    NETWORK_MANAGER: "NetworkManager-01"
+    SECURITY_ADMIN_CONFIG: "CentralSecurityAdminRules"
+    SUBSCRIPTION_ID: ${{ secrets.AZURE_CONNECTIVITY_SUBSCRIPTION_ID }}
 
 permissions:
     id-token: write
@@ -36,7 +35,7 @@ jobs:
               with:
                   azcliversion: latest
                   inlineScript: |
-                    az account set --subscription ${{ secrets.AZURE_CONNECTIVITY_SUBSCRIPTION_ID }}
+                    az account set --subscription $SUBSCRIPTION_ID
                     az account show
 
             - name: Deploy AVNM
@@ -46,9 +45,21 @@ jobs:
                   inlineScript: |
                     az stack sub create \
                     --name "AVNM-DeploymentStack" \
-                    --location ${{ env.Location }} \
+                    --location $LOCATION \
                     --template-file AVNM/avnm.bicep \
                     --parameters AVNM/avnm.bicepparam \
                     --action-on-unmanage 'detachAll' \
                     --deny-settings-mode 'denyDelete' \
                     --deny-settings-excluded-principals '${{ secrets.SPN_OBJECT_ID }}'
+
+            - name: Commit AVNM Security Admin Configuration
+              uses: azure/cli@v2
+              with:
+                azcliversion: latest
+                inlineScript: |
+                    az network manager post-commit \
+                        --resource-group $RESOURCE_GROUP \
+                        --name $NETWORK_MANAGER \
+                        --commit-type SecurityAdmin \
+                        --configuration-ids "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/networkManagers/$NETWORK_MANAGER/securityAdminConfigurations/$SECURITY_ADMIN_CONFIG" \
+                        --target-locations $LOCATION
