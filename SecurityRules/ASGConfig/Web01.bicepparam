@@ -10,5 +10,5 @@ param subnetName = 'default'
 
 param nicIds = [
   '/subscriptions/a31fc76b-e874-4a57-98b2-3d312d195025/resourceGroups/app456-rg/providers/Microsoft.Network/networkInterfaces/app456510'
-  '/subscriptions/a31fc76b-e874-4a57-98b2-3d312d195025/resourceGroups/app456-rg/providers/Microsoft.Network/networkInterfaces/empty-nic'
+  // '/subscriptions/a31fc76b-e874-4a57-98b2-3d312d195025/resourceGroups/app456-rg/providers/Microsoft.Network/networkInterfaces/empty-nic'
 ]
