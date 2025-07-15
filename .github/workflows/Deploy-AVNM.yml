@@ -4,7 +4,7 @@ on:
     workflow_dispatch:
 
 env:
-    Location: "canadacentral"
+    LOCATION: "canadacentral"
     RESOURCE_GROUP: "NetOpsToolkit-RG"
     NETWORK_MANAGER: "NetworkManager-01"
     SECURITY_ADMIN_CONFIG: "CentralSecurityAdminRules"

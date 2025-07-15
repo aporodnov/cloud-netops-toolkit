@@ -2,11 +2,6 @@ name: 1. Deploy_AutomationAccount
 
 on: 
     workflow_dispatch:
-        inputs:
-            environment:
-                type: string
-                description: 'Environment to deploy to: dev, prod'
-                required: false
 
 env:
     Location: "canadacentral"
