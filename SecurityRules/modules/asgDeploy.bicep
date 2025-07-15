@@ -32,5 +32,6 @@ module nicAsgAssoc 'nic-asg-assoc.bicep' = if (length(nicIds) > 0) {
   params: {
     asgId: asg.outputs.asgId
     nicIds: nicIds
+    location: location
   }
 }

@@ -5,7 +5,7 @@ on:
     inputs:
       ASGConfig:
         type: string
-        description: 'Provide ASGConfig list for this deployment (e.g. app222,app333)'
+        description: 'Provide ASGConfig list for this deployment (e.g. app222,Web01)'
         required: true
       Subscription:
         type: choice
