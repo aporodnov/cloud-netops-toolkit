@@ -52,6 +52,12 @@ jobs:
                     --deny-settings-mode 'denyDelete' \
                     --deny-settings-excluded-principals '${{ secrets.SPN_OBJECT_ID }}'
 
+            - name: Upgrade Azure CLI and Extensions
+              run: |
+                az upgrade --yes
+                az extension remove --name virtual-network-manager || true
+                az extension add --name virtual-network-manager
+
             - name: Commit AVNM Security Admin Configuration
               uses: azure/cli@v2
               with:
