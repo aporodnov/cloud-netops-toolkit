@@ -1,13 +1,10 @@
-name: 1. Deploy_AVNM
+name: 5. Deploy_AVNM
 
 on: 
     workflow_dispatch:
 
 env:
     LOCATION: "canadacentral"
-    RESOURCE_GROUP: "NetOpsToolkit-RG"
-    NETWORK_MANAGER: "NetworkManager-01"
-    SECURITY_ADMIN_CONFIG: "CentralSecurityAdminRules"
     SUBSCRIPTION_ID: ${{ secrets.AZURE_CONNECTIVITY_SUBSCRIPTION_ID }}
 
 permissions:
@@ -51,21 +48,3 @@ jobs:
                     --action-on-unmanage 'detachAll' \
                     --deny-settings-mode 'denyDelete' \
                     --deny-settings-excluded-principals '${{ secrets.SPN_OBJECT_ID }}'
-
-            - name: Upgrade Azure CLI and Extensions
-              run: |
-                az upgrade --yes
-                az extension remove --name virtual-network-manager || true
-                az extension add --name virtual-network-manager
-
-            - name: Commit AVNM Security Admin Configuration
-              uses: azure/cli@v2
-              with:
-                azcliversion: latest
-                inlineScript: |
-                    az network manager post-commit \
-                        --resource-group $RESOURCE_GROUP \
-                        --name $NETWORK_MANAGER \
-                        --commit-type SecurityAdmin \
-                        --configuration-ids "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.Network/networkManagers/$NETWORK_MANAGER/securityAdminConfigurations/$SECURITY_ADMIN_CONFIG" \
-                        --target-locations $LOCATION

@@ -1,4 +1,4 @@
-name: 1. Deploy_AutomationAccount
+name: 6. Deploy_AutomationAccount
 
 on: 
     workflow_dispatch:

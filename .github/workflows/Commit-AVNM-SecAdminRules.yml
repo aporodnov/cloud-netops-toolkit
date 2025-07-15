@@ -1,0 +1,45 @@
+name: 3. Commit-AVNM-SecAdminRules
+
+on:
+  workflow_dispatch:
+
+env:
+  LOCATION: "canadacentral"
+  RESOURCE_GROUP: "NetOpsToolkit-RG"
+  NETWORK_MANAGER: "NetworkManager-01"
+  SECURITY_ADMIN_CONFIG: "CentralSecurityAdminRules"
+  SUBSCRIPTION_ID: ${{ secrets.AZURE_CONNECTIVITY_SUBSCRIPTION_ID }}
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  Commit_AVNM:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Azure Login (PowerShell)
+        uses: azure/powershell@v1
+        with:
+          azPSVersion: "latest"
+          inlineScript: |
+            Connect-AzAccount -Identity
+            Set-AzContext -SubscriptionId $env:SUBSCRIPTION_ID
+
+      - name: Commit AVNM Security Admin Configuration (PowerShell)
+        uses: azure/powershell@v1
+        with:
+          azPSVersion: "latest"
+          inlineScript: |
+            $configId = "/subscriptions/$env:SUBSCRIPTION_ID/resourceGroups/$env:RESOURCE_GROUP/providers/Microsoft.Network/networkManagers/$env:NETWORK_MANAGER/securityAdminConfigurations/$env:SECURITY_ADMIN_CONFIG"
+            $regions = @($env:LOCATION)
+            Deploy-AzNetworkManagerCommit -Name $env:NETWORK_MANAGER `
+              -ResourceGroupName $env:RESOURCE_GROUP `
+              -ConfigurationId $configId `
+              -TargetLocation $regions `
+              -CommitType SecurityAdmin
