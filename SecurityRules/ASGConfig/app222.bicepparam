@@ -1,0 +1,13 @@
+using '../modules/asgDeploy.bicep'
+//the deployment will only work if ALL NICs are in the same resource group!!!
+
+param RGName = 'app222-rg'
+param asgName = 'app222asg'
+param location = 'canadacentral'
+param nicIds = [
+  
+]
+
+// param nicIds = [
+//   '/subscriptions/a31fc76b-e874-4a57-98b2-3d312d195025/resourceGroups/app456-rg/providers/Microsoft.Network/networkInterfaces/app456510'
+// ]
