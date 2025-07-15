@@ -23,19 +23,19 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Azure Login (PowerShell)
-        uses: azure/powershell@v1
+      - name: Azure Login
+        uses: azure/login@v2
         with:
-          azPSVersion: "latest"
-          inlineScript: |
-            Connect-AzAccount -Identity
-            Set-AzContext -SubscriptionId $env:SUBSCRIPTION_ID
-
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.SUBSCRIPTION_ID }}
+          enable-AzPSSession: true 
       - name: Commit AVNM Security Admin Configuration (PowerShell)
-        uses: azure/powershell@v1
+        uses: azure/powershell@v2
         with:
           azPSVersion: "latest"
           inlineScript: |
+            Set-AzContext -SubscriptionId $env:SUBSCRIPTION_ID
             $configId = "/subscriptions/$env:SUBSCRIPTION_ID/resourceGroups/$env:RESOURCE_GROUP/providers/Microsoft.Network/networkManagers/$env:NETWORK_MANAGER/securityAdminConfigurations/$env:SECURITY_ADMIN_CONFIG"
             $regions = @($env:LOCATION)
             Deploy-AzNetworkManagerCommit -Name $env:NETWORK_MANAGER `
