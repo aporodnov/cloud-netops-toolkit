@@ -3,9 +3,9 @@ name: 1. Deploy-NSGRules
 on: 
   workflow_dispatch:
     inputs:
-      VMName:
+      NSGConfig:
         type: string
-        description: 'Type VM Name for which you deploy NSG'
+        description: 'Provide NSGConfig list for this deployment (e.g. app456,empty-nic)'
         required: true
       Subscription:
         type: choice
@@ -23,8 +23,23 @@ permissions:
   contents: read
 
 jobs:
-  Deploy-NSGRules:
+  prepare-matrix:
     runs-on: ubuntu-latest
+    outputs:
+      nsglist: ${{ steps.set-matrix.outputs.nsglist }}
+    steps:
+      - id: set-matrix
+        run: |
+          arr=$(echo "${{ github.event.inputs.NSGConfig }}" | awk -F',' '{for(i=1;i<=NF;i++) printf "\"%s\"%s", $i, (i<NF?",":"") }')
+          echo "nsglist=[$arr]" >> $GITHUB_OUTPUT
+
+  Deploy-NSGRules:
+    needs: prepare-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        nsgconfig: ${{ fromJson(needs.prepare-matrix.outputs.nsglist) }}
+    name: Deploy-NSGRules-${{ matrix.nsgconfig }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -39,14 +54,12 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Set Subscription ID Env
+        shell: bash
         run: |
-          # Map subscription name to repository variable
           sub_var="AZURE_SUBSCRIPTION_ID_${{ github.event.inputs.Subscription }}"
-          # Convert to uppercase to match GitHub variable naming
           sub_var_upper=$(echo $sub_var | tr '[:lower:]' '[:upper:]')
-          # Use indirect expansion to get the value
-          echo "SUB_GUID=${!sub_var_upper}" >> $GITHUB_ENV
-
+          eval "SUB_GUID=\${$sub_var_upper}"
+          echo "SUB_GUID=$SUB_GUID" >> $GITHUB_ENV
         env:
           AZURE_SUBSCRIPTION_ID_APPLICATION01: ${{ vars.Application01 }}
           AZURE_SUBSCRIPTION_ID_APPLICATION02: ${{ vars.Application02 }}
@@ -65,7 +78,7 @@ jobs:
           azcliversion: latest
           inlineScript: |
             az deployment sub create \
-              --name "NSG-Deployment" \
+              --name "NSG-Deployment-${{ matrix.nsgconfig }}" \
               --location ${{ env.Location }} \
               --template-file SecurityRules/modules/nsg.bicep \
-              --parameters SecurityRules/NSGConfig/${{ github.event.inputs.VMName }}.bicepparam
+              --parameters SecurityRules/NSGConfig/${{ matrix.nsgconfig }}.bicepparam
