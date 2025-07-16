@@ -1,0 +1,108 @@
+name: 2. Deploy-ASGConfig
+
+on: 
+  workflow_dispatch:
+    inputs:
+      ASGConfig:
+        type: string
+        description: 'Provide ASGConfig list for this deployment (e.g. app222,Web01)'
+        required: true
+      Subscription:
+        type: choice
+        description: 'Select Subscription'
+        options:
+          - Application-01
+          - Application-02
+        required: true
+
+env:
+  Location: "canadacentral"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  prepare-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      asglist: ${{ steps.set-matrix.outputs.asglist }}
+    steps:
+      - id: set-matrix
+        run: |
+          arr=$(echo "${{ github.event.inputs.ASGConfig }}" | awk -F',' '{for(i=1;i<=NF;i++) printf "\"%s\"%s", $i, (i<NF?",":"") }')
+          echo "asglist=[$arr]" >> $GITHUB_OUTPUT
+
+  Deploy-ASGConfig:
+    needs: prepare-matrix
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        asgconfig: ${{ fromJson(needs.prepare-matrix.outputs.asglist) }}
+    name: Deploy-ASGConfig-${{ matrix.asgconfig }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Set Subscription ID Env
+        shell: bash
+        run: |
+          sub_var="${{ github.event.inputs.Subscription }}"
+          # Replace dash with underscore for shell variable names
+          sub_var_safe=$(echo "$sub_var" | tr '-' '_')
+          eval "SUB_GUID=\${$sub_var_safe}"
+          echo "SUB_GUID=$SUB_GUID" >> $GITHUB_ENV
+        env:
+          Application-01: ${{ vars.APPLICATION_01 }}
+          Application-02: ${{ vars.APPLICATION_02 }}
+
+      - name: Set Az Context
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            az account set --subscription "$SUB_GUID"
+            az account show
+
+      # - name: Deploy-ASGConfig
+      #   uses: azure/cli@v2
+      #   with:
+      #     azcliversion: latest
+      #     inlineScript: |
+      #       az deployment sub create \
+      #         --name "ASG-Deployment-${{ matrix.asgconfig }}-${{ github.job }}" \
+      #         --location ${{ env.Location }} \
+      #         --template-file SecurityRules/modules/asgDeploy.bicep \
+      #         --parameters SecurityRules/ASGConfig/${{ matrix.asgconfig }}.bicepparam
+
+      - name: Set Subscription Context
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            # Simple mapping using case statement
+            case "${{ github.event.inputs.Subscription }}" in 
+              "Application-01")
+                SUBSCRIPTION_ID="${{ vars.APPLICATION_01 }}"
+                ;;
+              "Application-02")
+                SUBSCRIPTION_ID="${{ vars.APPLICATION_02 }}"
+                ;;
+              *)
+                echo "Error: Unknown subscription selection"
+                exit 1
+                ;;
+            esac
+            
+            # Set context and verify
+            az account set --subscription "$SUBSCRIPTION_ID"
+            az account show --query name -o tsv
