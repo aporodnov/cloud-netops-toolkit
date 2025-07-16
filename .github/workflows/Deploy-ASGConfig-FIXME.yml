@@ -1,4 +1,4 @@
-name: 2. Deploy-ASGConfig
+name: 2. Deploy-ASGConfig-FIXME
 
 on: 
   workflow_dispatch:
@@ -13,6 +13,8 @@ on:
         options:
           - Application-01
           - Application-02
+          - Application-03
+          - Application-04
         required: true
 
 env:
@@ -56,20 +58,32 @@ jobs:
       - name: Set Subscription ID Env
         shell: bash
         run: |
-          sub_var="${{ github.event.inputs.Subscription }}"
-          # Replace dash with underscore for shell variable names
-          sub_var_safe=$(echo "$sub_var" | tr '-' '_')
-          eval "SUB_GUID=\${$sub_var_safe}"
+          # Define a mapping between subscription names and their IDs
+          declare -A subs=(
+            ["Application-01"]="${{ vars.APPLICATION_01 }}"
+            ["Application-02"]="${{ vars.APPLICATION_02 }}"
+            ["Application-03"]="${{ vars.APPLICATION_03 }}"
+            ["Application-04"]="${{ vars.APPLICATION_04 }}"
+          )
+          
+          # Get the subscription ID by using the input as the key
+          SUB_GUID="${subs[${{ github.event.inputs.Subscription }}]}"
+          
+          # Abort if the mapping is not found
+          if [ -z "$SUB_GUID" ]; then
+            echo "Error: Unknown subscription selection: ${{ github.event.inputs.Subscription }}"
+            exit 1
+          fi
+          
+          echo "Mapped SUB_GUID: $SUB_GUID"
           echo "SUB_GUID=$SUB_GUID" >> $GITHUB_ENV
-        env:
-          Application-01: ${{ vars.APPLICATION_01 }}
-          Application-02: ${{ vars.APPLICATION_02 }}
 
       - name: Set Az Context
         uses: azure/cli@v2
         with:
           azcliversion: latest
           inlineScript: |
+            echo "Using subscription ID: $SUB_GUID"
             az account set --subscription "$SUB_GUID"
             az account show
 
@@ -83,26 +97,3 @@ jobs:
       #         --location ${{ env.Location }} \
       #         --template-file SecurityRules/modules/asgDeploy.bicep \
       #         --parameters SecurityRules/ASGConfig/${{ matrix.asgconfig }}.bicepparam
-
-      - name: Set Subscription Context
-        uses: azure/cli@v2
-        with:
-          azcliversion: latest
-          inlineScript: |
-            # Simple mapping using case statement
-            case "${{ github.event.inputs.Subscription }}" in 
-              "Application-01")
-                SUBSCRIPTION_ID="${{ vars.APPLICATION_01 }}"
-                ;;
-              "Application-02")
-                SUBSCRIPTION_ID="${{ vars.APPLICATION_02 }}"
-                ;;
-              *)
-                echo "Error: Unknown subscription selection"
-                exit 1
-                ;;
-            esac
-            
-            # Set context and verify
-            az account set --subscription "$SUBSCRIPTION_ID"
-            az account show --query name -o tsv
